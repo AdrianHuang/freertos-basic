@@ -74,3 +74,24 @@ int strcmp(const char *a, const char *b)
                 ++a, ++b;
         return *a-*b;
 }
+
+int atoi(char *p)
+{
+	int negative = 1;
+	int result = 0;
+
+	if (p == NULL)
+		return 0;
+
+	if (*p == '-') {
+		negative = -1;
+		p++;
+	}
+
+	while (*p != '\0') {
+		result = (result << 3) + (result << 1) + (*p) - '0';
+		p++;
+	}
+
+	return result * negative;
+}
