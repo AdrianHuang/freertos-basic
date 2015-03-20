@@ -7,6 +7,7 @@
 #include "filesystem.h"
 #include "osdebug.h"
 #include "hash-djb2.h"
+#include "shell-history.h"
 
 static struct fddef_t fio_fds[MAX_FDS];
 
@@ -32,10 +33,9 @@ static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
 		case '[':
 			if(last_chr_is_esc){
 				last_chr_is_esc=0;
-				ch=recv_byte();
-				if(ch>=1&&ch<=6){
-					ch=recv_byte();
-				}
+				ch = recv_byte();
+
+				history_process_req(HISTORY_CHECK_ARROW, &ch);
 				continue;
 			}
 		case ESC:

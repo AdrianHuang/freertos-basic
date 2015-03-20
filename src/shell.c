@@ -29,6 +29,7 @@ void ps_command(int, char **);
 void host_command(int, char **);
 void help_command(int, char **);
 void host_command(int, char **);
+void history_command(int, char **);
 void mmtest_command(int, char **);
 void test_command(int, char **);
 void _command(int, char **);
@@ -42,6 +43,7 @@ cmdlist cl[]={
 	MKCL(ps, "Report a snapshot of the current processes"),
 	MKCL(host, "Run command on host"),
 	MKCL(mmtest, "heap memory allocation test"),
+	MKCL(history, "show command history"),
 	MKCL(help, "help"),
 	MKCL(test, "test new function"),
 	MKCL(, ""),
@@ -273,7 +275,8 @@ void test_command(int n, char *argv[])
 	return ;
 }
 
-void _command(int n, char *argv[]){
+void _command(int n, char *argv[])
+{
 	(void)n; (void)argv;
 	fio_printf(1, "\r\n");
 }
@@ -286,5 +289,6 @@ cmdfunc *do_command(const char *cmd){
 		if(strcmp(cl[i].name, cmd)==0)
 			return cl[i].fptr;
 	}
+
 	return NULL;	
 }

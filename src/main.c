@@ -16,6 +16,9 @@
 #include "clib.h"
 #include "shell.h"
 #include "host.h"
+#include "shell-history.h"
+
+#define SERIAL_RX_QUEUE_LEN	3
 
 /*
  * Some keys are the combination of characters. For example:
@@ -96,15 +99,20 @@ char recv_byte()
 }
 void command_prompt(void *pvParameters)
 {
-	char buf[128];
+	char buf[SHELL_CMD_LEN];
 	char *argv[20];
-    char hint[] = USER_NAME "@" USER_NAME "-STM32:~$ ";
+	char hint[] = USER_NAME "@" USER_NAME "-STM32:~$ ";
 
 	fio_printf(1, "\rWelcome to FreeRTOS Shell\r\n");
 	while(1){
                 fio_printf(1, "%s", hint);
-		fio_read(0, buf, 127);
+		fio_read(0, buf, sizeof(buf) - 1);
 	
+		if (!strcmp(buf, ""))
+			history_process_req(HISTORY_UPDATE_CMD, buf);
+
+		history_process_req(HISTORY_ADD_CMD, buf);
+
 		int n=parse_command(buf, argv);
 
 		/* will return pointer to the command function */
@@ -174,7 +182,10 @@ int main()
 	 * Reference: www.freertos.org/a00116.html */
 	serial_rx_queue = xQueueCreate(SERIAL_RX_QUEUE_LEN, sizeof(char));
 
-    register_devfs();
+	register_devfs();
+
+	history_init();
+
 	/* Create a task to output text read from romfs. */
 	xTaskCreate(command_prompt,
 	            (signed portCHAR *) "CLI",
