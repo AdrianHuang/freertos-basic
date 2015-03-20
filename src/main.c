@@ -17,6 +17,15 @@
 #include "shell.h"
 #include "host.h"
 
+/*
+ * Some keys are the combination of characters. For example:
+ *	Up   arrow: ESC + '[' + 'A'
+ *	Down arrow: ESC + '[' + 'B'
+ *
+ * So, we need to extend the length of the rx queue.
+ */
+#define SERIAL_RX_QUEUE_LEN	3
+
 /* _sromfs symbol can be found in main.ld linker script
  * it contains file system structure of test_romfs directory
  */
@@ -163,7 +172,7 @@ int main()
 	vSemaphoreCreateBinary(serial_tx_wait_sem);
 	/* Add for serial input 
 	 * Reference: www.freertos.org/a00116.html */
-	serial_rx_queue = xQueueCreate(1, sizeof(char));
+	serial_rx_queue = xQueueCreate(SERIAL_RX_QUEUE_LEN, sizeof(char));
 
     register_devfs();
 	/* Create a task to output text read from romfs. */
