@@ -44,7 +44,6 @@ static int history_update_cmd(void *);
 
 static struct history_func history_func_list[] = {
 	{HISTORY_UPDATE_CMD, history_update_cmd},
-	{HISTORY_ADD_CMD, history_add_cmd},
 	{HISTORY_CHECK_ARROW, history_check_arrow},
 	{0}
 };
@@ -176,9 +175,9 @@ static void history_display_cmd(struct list_head *p)
 	h_info->selected_list = p;
 }
 
-static void history_clear_cmd(void)
+static void history_clear_cmd(int n)
 {
-	while (h_info->prev_cmd_len-- > 0)
+	while (n-- > 0)
 		fio_printf(1, "\b \b");
 }
 
@@ -206,7 +205,8 @@ static int history_check_arrow(void *arg)
 
 		/* Reach the head of the history list. */
 		if (h_info->selected_list == h_info->history_list.next) {
-			history_clear_cmd();
+			history_clear_cmd(h_info->prev_cmd_len);
+			h_info->prev_cmd_len = 0;
 			h_info->selected_list = NULL;
 			break;
 		}
@@ -230,18 +230,28 @@ static int history_update_cmd(void *arg)
 	char *buf = (char *) arg;
 	int len; 
 
+	/*
+	 * If the user did not hit any up or down key, just try to add
+	 * the command to the history list.
+	 */
 	if (!h_info->selected_list)
-		return 0;
+		goto exit;
 
 	p = list_entry(h_info->selected_list, struct history_entry, list);
 	if (!p)
-		return 0;
+		goto exit;
 
 	len = strlen(p->cmd);
-		
+
+	if (strlen(buf) > len)
+		history_clear_cmd(strlen(buf) - len);
+
 	strncpy(buf, p->cmd, len);
 	buf[len] = '\0';
 
+exit:
+	/* Before returning, we need to add this command to history list. */
+	history_add_cmd(buf);
 	return 0;
 }
 

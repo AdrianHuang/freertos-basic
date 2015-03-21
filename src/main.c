@@ -110,8 +110,6 @@ void command_prompt(void *pvParameters)
 	
 		history_process_req(HISTORY_UPDATE_CMD, buf);
 
-		history_process_req(HISTORY_ADD_CMD, buf);
-
 		int n=parse_command(buf, argv);
 
 		/* will return pointer to the command function */

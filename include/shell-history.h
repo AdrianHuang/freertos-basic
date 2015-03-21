@@ -6,7 +6,6 @@ int history_process_req(int, void *);
 
 enum {
 	HISTORY_UPDATE_CMD,
-	HISTORY_ADD_CMD,
 	HISTORY_CHECK_ARROW
 };
 #endif
