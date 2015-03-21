@@ -16,8 +16,6 @@
 #define list_for_each_prev(pos, head) \
 	for (pos = (head)->prev; pos != (head); pos = pos->prev)
 
-//#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-
 #define container_of(ptr, type, member) \
         ((type *)((char *)(ptr)-(char *)(&((type *)0)->member)))
 
@@ -30,6 +28,9 @@
 
 #define list_last_entry(ptr, type, member) \
 	list_entry((ptr)->prev, type, member)
+
+#define list_next_entry(pos, member) \
+        list_entry((pos)->member.next, typeof(*(pos)), member)
 
 struct list_head {
 	struct list_head *next, *prev;
@@ -77,5 +78,16 @@ static inline void list_move(struct list_head *list, struct list_head *head)
 {
 	__list_del_entry(list);
 	list_add(list, head);
+}
+
+static inline int list_is_last(const struct list_head *list,
+                                const struct list_head *head)
+{
+	        return list->next == head;
+}
+
+static inline int list_empty(const struct list_head *head)
+{
+	        return head->next == head;
 }
 #endif

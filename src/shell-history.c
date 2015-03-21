@@ -14,11 +14,6 @@
 
 #define HISTORY_MAX_ENTRY	10
 
-#define HISTORY_INDEX_CEILING(h)	(h->cur_idx >= h->cur_count)
-#define HISTORY_INDEX_FLOOR(h)		(h->cur_idx == 0)
-#define HISTORY_INDEX_DEC(h)		(--(h->cur_idx))
-#define HISTORY_INDEX_INC(h)		(++(h->cur_idx))
-
 #define HISTORY_ASSIGN_FUNC_PTR(h, name) \
 	h->name = history_ ## name
 
@@ -28,10 +23,10 @@ struct history_entry {
 };
 
 struct history_info {
-	int cur_idx;
 	int cur_count; 	/* Currently avaialble entries in the list. */
 	int max_count;	/* Maximum count in the list. */
 	int prev_cmd_len;
+	struct list_head *selected_list; /* in-memory cache. */
 	struct list_head history_list;
 };
 
@@ -46,8 +41,6 @@ static int history_get_from_file(void);
 static int history_add_cmd(void *);
 static int history_check_arrow(void *);
 static int history_update_cmd(void *);
-
-static struct history_entry *history_get_entry(int);
 
 static struct history_func history_func_list[] = {
 	{HISTORY_UPDATE_CMD, history_update_cmd},
@@ -101,29 +94,13 @@ static int history_get_from_file(void)
 	return 0;
 }
 
-static struct history_entry *history_get_entry(int n)
-{
-	struct list_head *p;
-	int idx = 0;
-
-	if (n <= 0)
-		return NULL;
-
-	list_for_each(p, &h_info->history_list) {
-		if (++idx == n)
-			break;
-	}
-
-	return list_entry(p, struct history_entry, list);
-}
-
 static int history_add_cmd(void *arg)
 {
 	struct history_entry *hep;
 	char *cmd = (char *) arg;
 
-	/* Reset the index. */
-	h_info->cur_idx = 0;
+	/* Reset the selected list. */
+	h_info->selected_list = NULL;
 
 	hep = list_first_entry(&h_info->history_list, 
 			     	struct history_entry, list);
@@ -182,42 +159,61 @@ static void history_traverse_list(void)
 	return ;
 }
 
-static inline void history_display_cmd(struct history_entry *p)
+static void history_display_cmd(struct list_head *p)
 {
 	char hint[] = USER_NAME "@" USER_NAME "-STM32:~$ ";
-	int n = h_info->prev_cmd_len - strlen(p->cmd);
+	struct history_entry *hep = list_entry(p, struct history_entry, list);
+	int n = h_info->prev_cmd_len - strlen(hep->cmd);
 
 	while (n-- > 0)
 		fio_printf(1, "\b \b");
 
-	h_info->prev_cmd_len = strlen(p->cmd);
+	h_info->prev_cmd_len = strlen(hep->cmd);
 
-	fio_printf(1, "\r%s%s", hint, p->cmd);
+	fio_printf(1, "\r%s%s", hint, hep->cmd);
+
+	/* Update the selected list. */
+	h_info->selected_list = p;
+}
+
+static void history_clear_cmd(void)
+{
+	while (h_info->prev_cmd_len-- > 0)
+		fio_printf(1, "\b \b");
 }
 
 static int history_check_arrow(void *arg)
 {
-	int ret = 0;
-	struct history_entry *hep;
+	struct list_head *p;
 	char ch = *((char *) arg);
 
 	switch (ch) {
 	case 'A': // up arrow 
-		if (HISTORY_INDEX_CEILING(h_info))
+		p = (h_info->selected_list ? h_info->selected_list :
+			&h_info->history_list);
+
+		if (list_empty(p) || (list_is_last(p, &h_info->history_list)))
 			break;
 
-		hep = history_get_entry(HISTORY_INDEX_INC(h_info));
+		/* Display the next entry. */
+		history_display_cmd(p->next);
 
-		history_display_cmd(hep);
 		break;
 
 	case 'B': // down arrow
-		if (HISTORY_INDEX_FLOOR(h_info))
+		if (!h_info->selected_list)
 			break;
 
-		hep = history_get_entry(HISTORY_INDEX_DEC(h_info));
+		/* Reach the head of the history list. */
+		if (h_info->selected_list == h_info->history_list.next) {
+			history_clear_cmd();
+			h_info->selected_list = NULL;
+			break;
+		}
 
-		history_display_cmd(hep);
+		/* Display the previous entry. */
+		history_display_cmd(h_info->selected_list->prev);
+
 		break;
 	case 'C': // right arrow
 	case 'D': // left arrow
@@ -225,15 +221,19 @@ static int history_check_arrow(void *arg)
 		break;
 	}
 	
-	return ret;
+	return 0;
 }
 
 static int history_update_cmd(void *arg)
 {
-	struct history_entry *p = history_get_entry(h_info->cur_idx);
+	struct history_entry *p;
 	char *buf = (char *) arg;
 	int len; 
 
+	if (!h_info->selected_list)
+		return 0;
+
+	p = list_entry(h_info->selected_list, struct history_entry, list);
 	if (!p)
 		return 0;
 
@@ -255,7 +255,7 @@ int history_process_req(int req, void *arg)
 		}
 	}
 
-	return 0;
+	return -1;
 }
 
 void history_command(int n, char *argv[])
