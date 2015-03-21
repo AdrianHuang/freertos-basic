@@ -108,8 +108,7 @@ void command_prompt(void *pvParameters)
                 fio_printf(1, "%s", hint);
 		fio_read(0, buf, sizeof(buf) - 1);
 	
-		if (!strcmp(buf, ""))
-			history_process_req(HISTORY_UPDATE_CMD, buf);
+		history_process_req(HISTORY_UPDATE_CMD, buf);
 
 		history_process_req(HISTORY_ADD_CMD, buf);
 
