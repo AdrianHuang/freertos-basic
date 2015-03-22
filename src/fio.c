@@ -31,13 +31,32 @@ static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
 			endofline=1;
 			break;
 		case '[':
-			if(last_chr_is_esc){
-				last_chr_is_esc=0;
-				ch = recv_byte();
-
-				history_process_req(HISTORY_CHECK_ARROW, &ch);
+			if(!last_chr_is_esc)
 				continue;
+
+			last_chr_is_esc=0;
+			ch = recv_byte();
+
+			if (i > 0) {
+				/* It needs to delete '[' character */
+				ptrbuf[i] = '\0';
+
+				/*
+				 * Save the initial command typed in the
+				 * command prompt. Note the initial command
+				 * is not entered yet, and the user hits
+				 * up or down key to get the command history.
+				 * So, this command has to be saved.
+				 */
+				history_process_req(HISTORY_SAVE_BUF_CMD,
+							ptrbuf);
 			}
+
+			/* Success if it returns 0. */
+			if (!history_process_req(HISTORY_CHECK_ARROW, &ch))
+				i = history_process_req(HISTORY_COPY_CMD,
+							ptrbuf);
+			continue;
 		case ESC:
 			last_chr_is_esc=1;
 			continue;

@@ -25,7 +25,8 @@ struct history_entry {
 struct history_info {
 	int cur_count; 	/* Currently avaialble entries in the list. */
 	int max_count;	/* Maximum count in the list. */
-	int prev_cmd_len;
+	int prev_cmd_len; /* Previous command length. */
+	char saved_buf_cmd[SHELL_CMD_LEN]; /* Save the initial command. */
 	struct list_head *selected_list; /* in-memory cache. */
 	struct list_head history_list;
 };
@@ -39,11 +40,14 @@ static void history_traverse_list(void);
 
 static int history_get_from_file(void);
 static int history_add_cmd(void *);
+static int history_copy_cmd(void *);
+static int history_save_buf_cmd(void *);
 static int history_check_arrow(void *);
-static int history_update_cmd(void *);
 
 static struct history_func history_func_list[] = {
-	{HISTORY_UPDATE_CMD, history_update_cmd},
+	{HISTORY_ADD_CMD, history_add_cmd},
+	{HISTORY_COPY_CMD, history_copy_cmd},
+	{HISTORY_SAVE_BUF_CMD, history_save_buf_cmd},
 	{HISTORY_CHECK_ARROW, history_check_arrow},
 	{0}
 };
@@ -98,8 +102,10 @@ static int history_add_cmd(void *arg)
 	struct history_entry *hep;
 	char *cmd = (char *) arg;
 
-	/* Reset the selected list. */
+	/* Reset the related stuff. */
 	h_info->selected_list = NULL;
+	strcpy(h_info->saved_buf_cmd, "");
+	h_info->prev_cmd_len = 0;
 
 	hep = list_first_entry(&h_info->history_list, 
 			     	struct history_entry, list);
@@ -158,33 +164,52 @@ static void history_traverse_list(void)
 	return ;
 }
 
-static void history_display_cmd(struct list_head *p)
+static inline void __history_display_cmd(char *cmd, int n)
 {
-	char hint[] = USER_NAME "@" USER_NAME "-STM32:~$ ";
-	struct history_entry *hep = list_entry(p, struct history_entry, list);
-	int n = h_info->prev_cmd_len - strlen(hep->cmd);
+	if (!cmd)
+		return;
 
 	while (n-- > 0)
 		fio_printf(1, "\b \b");
 
-	h_info->prev_cmd_len = strlen(hep->cmd);
+	fio_printf(1, "%s", cmd);
+}
 
-	fio_printf(1, "\r%s%s", hint, hep->cmd);
+static void history_display_cmd(struct list_head *p)
+{
+	struct history_entry *hep = list_entry(p, struct history_entry, list);
+	int n = h_info->prev_cmd_len;
+
+	__history_display_cmd(hep->cmd, n);
+
+	h_info->prev_cmd_len = strlen(hep->cmd);
 
 	/* Update the selected list. */
 	h_info->selected_list = p;
 }
 
-static void history_clear_cmd(int n)
+/*
+ * Save the buffer command in the prompt command in case the user presses
+ * up or down key.
+ */
+static int history_save_buf_cmd(void *arg)
 {
-	while (n-- > 0)
-		fio_printf(1, "\b \b");
+	if (h_info->selected_list)
+		return 0;
+
+	if (strcmp(h_info->saved_buf_cmd, arg)) {
+		strcpy(h_info->saved_buf_cmd, arg);
+		h_info->prev_cmd_len = strlen(h_info->saved_buf_cmd);
+	}
+
+	return 0;
 }
 
 static int history_check_arrow(void *arg)
 {
 	struct list_head *p;
 	char ch = *((char *) arg);
+	int ret = 0;
 
 	switch (ch) {
 	case 'A': // up arrow 
@@ -205,8 +230,11 @@ static int history_check_arrow(void *arg)
 
 		/* Reach the head of the history list. */
 		if (h_info->selected_list == h_info->history_list.next) {
-			history_clear_cmd(h_info->prev_cmd_len);
-			h_info->prev_cmd_len = 0;
+			int n = h_info->prev_cmd_len;
+
+			__history_display_cmd(h_info->saved_buf_cmd, n);
+
+			h_info->prev_cmd_len = strlen(h_info->saved_buf_cmd);
 			h_info->selected_list = NULL;
 			break;
 		}
@@ -217,43 +245,36 @@ static int history_check_arrow(void *arg)
 		break;
 	case 'C': // right arrow
 	case 'D': // left arrow
+		break;
 	default:
+		ret = -1; // unknown key
 		break;
 	}
 	
-	return 0;
+	return ret;
 }
 
-static int history_update_cmd(void *arg)
+static int history_copy_cmd(void *arg)
 {
 	struct history_entry *p;
 	char *buf = (char *) arg;
-	int len; 
+	int n;
 
-	/*
-	 * If the user did not hit any up or down key, just try to add
-	 * the command to the history list.
-	 */
-	if (!h_info->selected_list)
-		goto exit;
+	if (!h_info->selected_list) {
+		n = strlen(h_info->saved_buf_cmd);
+		strncpy(arg, h_info->saved_buf_cmd, n);
+		return n;
+	}
 
 	p = list_entry(h_info->selected_list, struct history_entry, list);
-	if (!p)
-		goto exit;
+	n = strlen(p->cmd);
 
-	len = strlen(p->cmd);
+	strncpy(buf, p->cmd, n);
+	buf[n] = '\0';
 
-	if (strlen(buf) > len)
-		history_clear_cmd(strlen(buf) - len);
-
-	strncpy(buf, p->cmd, len);
-	buf[len] = '\0';
-
-exit:
-	/* Before returning, we need to add this command to history list. */
-	history_add_cmd(buf);
-	return 0;
+	return n;
 }
+
 
 int history_process_req(int req, void *arg)
 {
