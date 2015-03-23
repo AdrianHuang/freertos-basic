@@ -16,9 +16,8 @@
 #include "clib.h"
 #include "shell.h"
 #include "host.h"
+#include "test-func.h"
 #include "shell-history.h"
-
-#define SERIAL_RX_QUEUE_LEN	3
 
 /*
  * Some keys are the combination of characters. For example:
@@ -181,6 +180,8 @@ int main()
 	serial_rx_queue = xQueueCreate(SERIAL_RX_QUEUE_LEN, sizeof(char));
 
 	register_devfs();
+
+	test_func_init();
 
 	history_init();
 

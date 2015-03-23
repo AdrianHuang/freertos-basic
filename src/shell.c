@@ -1,26 +1,21 @@
 #include "shell.h"
 #include <stddef.h>
-#include <stdlib.h>
 #include "clib.h"
 #include <string.h>
 #include "fio.h"
 #include "filesystem.h"
 
 #include "FreeRTOS.h"
+#include "queue.h"
 #include "task.h"
 #include "host.h"
+#include "test-func.h"
 
 typedef struct {
 	const char *name;
 	cmdfunc *fptr;
 	const char *desc;
 } cmdlist;
-
-struct test_funcs {
-	const char *name;
-	int general_output;
-	int (*test_func) (int);
-};
 
 void ls_command(int, char **);
 void man_command(int, char **);
@@ -47,22 +42,6 @@ cmdlist cl[]={
 	MKCL(help, "help"),
 	MKCL(test, "test new function"),
 	MKCL(, ""),
-};
-
-/*
- * Definitions for test functions.
- */
-#define MK_TEST_FUNC(n, g) {.name=#n, .general_output=g, .test_func=test_ ## n}
-
-static int test_fib(int);
-static int test_factorial(int);
-static int test_prime(int);
-
-static struct test_funcs funcs_list[] = {
-	MK_TEST_FUNC(fib, 1),
-	MK_TEST_FUNC(factorial, 1),
-	MK_TEST_FUNC(prime, 0),
-	{0}
 };
 
 int parse_command(char *str, char *argv[]){
@@ -185,94 +164,12 @@ void help_command(int n,char *argv[]){
 	}
 }
 
-static int test_fib(int n)
-{
-	int	fn = 1, fn1 = 0;
-
-	if (n <= 0)
-		return 0;
-
-	while (n-- > 1) {
-		fn = fn + fn1;
-		fn1 = fn - fn1;
-
-	}
-
-	return fn;
-}
-
-static int test_factorial(int n)
-{
-	if (n <= 1)
-		return 1;
-
-	return n * test_factorial(n-1);
-}
-
-static int test_prime(int n)
-{
-	int i;
-
-	for(i=2;i<n;i++) {
-		if (!(n % i))
-			break;
-	}
-
-	fio_printf(1, "%d is %sa prime number\r\n", n, i == n ? "" : "not ");
-
-	/*
-	 * return 1: is a prime number
-	 * return 0: not a prime number
-	 */
-	return (i == n ? 1 : 0);
-}
-
-static void test_func_usage(void)
-{
-	struct test_funcs *ptr;
-	fio_printf(2, "Usage: test function_name number\r\n");
-	fio_printf(2, "Example:\r\n");
-
-	for(ptr=funcs_list;ptr->name;ptr++)
-		fio_printf(2, "\ttest %s 5\r\n", ptr->name);
-
-}
-
-static inline void test_invoke_func(struct test_funcs *p, char *arg)
-{
-	int result;
-	int n = atoi(arg);
-
-	result = p->test_func(n);
-
-	if (p->general_output)
-		fio_printf(1, "%s(%d) is %d\r\n", p->name, n, result);
-
-	return;
-}
-
 void test_command(int n, char *argv[])
 {
-	struct test_funcs *ptr;
+	struct test_func_args arg = {n , argv};
 
-	fio_printf(1, "\r\n");
-
-	if (n < 3) {
-		test_func_usage();
-		return ;
-	}
-
-	for(ptr=funcs_list;ptr->test_func;ptr++) {
-		if (!strcmp(ptr->name, argv[1])) {
-			test_invoke_func(ptr, argv[2]);
-			break;
-		}
-	}
-
-	if (!ptr->test_func)
-		test_func_usage();
-
-	return ;
+	if(xQueueSendToBack(test_rx_queue, &arg, 0) != pdPASS)
+		fio_printf(2, "\r\nCannot send data to test_rx_queue!\r\n");
 }
 
 void _command(int n, char *argv[])
