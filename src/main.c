@@ -108,7 +108,7 @@ void command_prompt(void *pvParameters)
 		fio_read(0, buf, sizeof(buf) - 1);
 	
 		/* Add the command to the history list. */
-		history_process_req(HISTORY_ADD_CMD, buf);
+		SEND_HISTORY_REQ(HISTORY_ADD_CMD, buf, NULL);
 
 		int n=parse_command(buf, argv);
 

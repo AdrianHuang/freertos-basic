@@ -18,12 +18,6 @@ void send_history_req(int, void *, void *);
 
 enum KeyName{ESC=27, BACKSPACE=127};
 
-#define SEND_HISTORY_REQ(r, a, t) 					\
-do { 									\
-	struct history_args arg = {0, r, (char **) a, (void *) t}; 	\
-	xQueueSendToBack(history_rx_queue, &arg, 0); 			\
-} while(0)
-
 /* Imple */
 static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
     int i=0, endofline=0, last_chr_is_esc;

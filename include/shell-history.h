@@ -1,6 +1,12 @@
 #ifndef SHELL_HISTORY_H
 #define SHELL_HISTORY_H
 
+#define SEND_HISTORY_REQ(r, a, t) 					\
+do { 									\
+	struct history_args arg = {0, r, (char **) a, (void *) t}; 	\
+	xQueueSendToBack(history_rx_queue, &arg, 0); 			\
+} while(0)
+
 struct history_args {
 	unsigned short n;
 	unsigned short req;
@@ -18,5 +24,4 @@ enum {
 extern volatile xQueueHandle history_rx_queue;
 
 int history_init(void);
-int history_process_req(int, void *);
 #endif

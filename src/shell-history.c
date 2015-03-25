@@ -280,8 +280,7 @@ static int history_copy_cmd(void *arg)
 	return n;
 }
 
-
-int history_process_req(int req, void *arg)
+static int history_process_req(int req, void *arg)
 {
 	struct history_func *hfp;
 
