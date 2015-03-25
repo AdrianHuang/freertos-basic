@@ -14,14 +14,23 @@ static struct fddef_t fio_fds[MAX_FDS];
 /* recv_byte is define in main.c */
 char recv_byte();
 void send_byte(char);
+void send_history_req(int, void *, void *);
 
 enum KeyName{ESC=27, BACKSPACE=127};
+
+#define SEND_HISTORY_REQ(r, a, t) 					\
+do { 									\
+	struct history_args arg = {0, r, (char **) a, (void *) t}; 	\
+	xQueueSendToBack(history_rx_queue, &arg, 0); 			\
+} while(0)
 
 /* Imple */
 static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
     int i=0, endofline=0, last_chr_is_esc;
     char *ptrbuf=buf;
     char ch;
+    int ret = -1;
+
     while(i < count&&endofline!=1){
 	ptrbuf[i]=recv_byte();
 	switch(ptrbuf[i]){
@@ -48,14 +57,18 @@ static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
 				 * up or down key to get the command history.
 				 * So, this command has to be saved.
 				 */
-				history_process_req(HISTORY_SAVE_BUF_CMD,
-							ptrbuf);
+				SEND_HISTORY_REQ(HISTORY_SAVE_BUF_CMD,
+							ptrbuf, NULL);
 			}
 
-			/* Success if it returns 0. */
-			if (!history_process_req(HISTORY_CHECK_ARROW, &ch))
-				i = history_process_req(HISTORY_COPY_CMD,
-							ptrbuf);
+			SEND_HISTORY_REQ(HISTORY_CHECK_ARROW, &ch, &ret);
+
+			/*
+			 * Success if the request HISTORY_CHECK_ARROW
+			 * returns 0.
+			 */
+			if (!ret)
+				SEND_HISTORY_REQ(HISTORY_COPY_CMD, ptrbuf, &i);
 			continue;
 		case ESC:
 			last_chr_is_esc=1;

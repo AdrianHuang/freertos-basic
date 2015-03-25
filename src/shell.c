@@ -10,6 +10,7 @@
 #include "task.h"
 #include "host.h"
 #include "test-func.h"
+#include "shell-history.h"
 
 typedef struct {
 	const char *name;
@@ -170,6 +171,14 @@ void test_command(int n, char *argv[])
 
 	if(xQueueSendToBack(test_rx_queue, &arg, 0) != pdPASS)
 		fio_printf(2, "\r\nCannot send data to test_rx_queue!\r\n");
+}
+
+void history_command(int n, char *argv[])
+{
+	struct history_args arg = {.n = n, .argv = argv};
+
+	if(xQueueSendToBack(history_rx_queue, &arg, 0) != pdPASS)
+		fio_printf(2, "\r\nCannot send data to history_rx_queue!\r\n");
 }
 
 void _command(int n, char *argv[])

@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
 #include "fio.h"
 #include "clib.h"
 #include "filesystem.h"
@@ -13,9 +15,12 @@
 #define HISTORY_FILE ".freertos_history"
 
 #define HISTORY_MAX_ENTRY	10
+#define HISTORY_RX_QUEUE_LEN 	3
 
 #define HISTORY_ASSIGN_FUNC_PTR(h, name) \
 	h->name = history_ ## name
+
+volatile xQueueHandle history_rx_queue = NULL;
 
 struct history_entry {
 	char cmd[SHELL_CMD_LEN];
@@ -289,10 +294,38 @@ int history_process_req(int req, void *arg)
 	return -1;
 }
 
-void history_command(int n, char *argv[])
+static void do_history_cmd(int n, char *argv[])
 {
 	fio_printf(1, "\r\n");
 	history_traverse_list();
+}
+
+static void history_task(void *pvParameters)
+{
+	const portTickType ticks = 100 / portTICK_RATE_MS; // 100ms
+	struct history_args args;
+	int ret;
+
+	while (1) {
+		if(xQueueReceive(history_rx_queue, &args, ticks) != pdPASS)
+			continue;
+
+		/*
+		 * This is the history command typed in the command prompt
+		 * because the argument 'n' (the number of argurment) is
+		 * greater than 0.
+		 */
+		if (args.n) {
+			do_history_cmd(args.n, args.argv);
+			continue;
+		}
+
+		/* The user hits any up or down key. */
+		ret = history_process_req(args.req, args.argv);
+
+		if (args.ret)
+			*(int *) args.ret = ret;
+	}
 }
 
 int history_init(void)
@@ -311,6 +344,13 @@ int history_init(void)
 	h_info->max_count = HISTORY_MAX_ENTRY;
 	
 	INIT_LIST_HEAD(&h_info->history_list);
+
+	history_rx_queue = xQueueCreate(HISTORY_RX_QUEUE_LEN,
+					sizeof(struct history_args));
+
+	xTaskCreate(history_task,
+	            (signed portCHAR *) "HISTORY",
+	            512, NULL, tskIDLE_PRIORITY + 3, NULL);
 
 	return history_get_from_file();
 }
