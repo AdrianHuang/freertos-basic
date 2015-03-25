@@ -48,6 +48,7 @@ static int history_add_cmd(void *);
 static int history_copy_cmd(void *);
 static int history_save_buf_cmd(void *);
 static int history_check_arrow(void *);
+static int history_get_cmd(int, char *);
 
 static struct history_func history_func_list[] = {
 	{HISTORY_ADD_CMD, history_add_cmd},
@@ -106,11 +107,27 @@ static int history_add_cmd(void *arg)
 {
 	struct history_entry *hep;
 	char *cmd = (char *) arg;
+	int history_cmd_num;
 
 	/* Reset the related stuff. */
 	h_info->selected_list = NULL;
 	strcpy(h_info->saved_buf_cmd, "");
 	h_info->prev_cmd_len = 0;
+
+	/*
+	 * Exclamation mark: Support the following command.
+	 * 	$ !history_command_number
+	 */
+	if (cmd[0] == '!') {
+		history_cmd_num = atoi((char *) (cmd + 1));
+
+		/*
+		 * Do not need to check the returned status because
+		 * the error will be caught during executing the
+		 * command.
+		 */
+		history_get_cmd(history_cmd_num, cmd);
+	}
 
 	hep = list_first_entry(&h_info->history_list, 
 			     	struct history_entry, list);
@@ -167,6 +184,30 @@ static void history_traverse_list(void)
 	}
 
 	return ;
+}
+
+static int history_get_cmd(int entry_num, char *cmd)
+{
+	struct list_head *p;
+	struct history_entry *hep;
+
+	if (entry_num <= 0)
+		return -1;
+
+	list_for_each_prev(p, &h_info->history_list) {
+		if (--entry_num)
+			continue;
+
+		hep = list_entry(p, struct history_entry, list);
+		fio_printf(1, "\r\n%s", hep->cmd);
+
+		/* Update the command. */
+		sprintf(cmd, hep->cmd, strlen(hep->cmd));
+
+		return 0;
+	}
+
+	return -1;
 }
 
 static inline void __history_display_cmd(char *cmd, int n)
