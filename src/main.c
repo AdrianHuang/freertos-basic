@@ -26,7 +26,7 @@
  *
  * So, we need to extend the length of the rx queue.
  */
-#define SERIAL_RX_QUEUE_LEN	3
+#define SERIAL_RX_QUEUE_LEN	9
 
 /* _sromfs symbol can be found in main.ld linker script
  * it contains file system structure of test_romfs directory
