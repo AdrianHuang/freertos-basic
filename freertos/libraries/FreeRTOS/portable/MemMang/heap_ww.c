@@ -293,6 +293,7 @@ void *pvPortMalloc( size_t xWantedSize )
 void vPortFree( void *pv )
 {
     unsigned char *puc = ( unsigned char * ) pv;
+    unsigned int freeBytes;
     xBlockLink *pxLink;
 
     if( pv )
@@ -318,6 +319,8 @@ void vPortFree( void *pv )
                 previous = successor;
             }
 
+	    freeBytes = pxLink->xBlockSize;
+
             if (successor != &xEnd && END_OF_BLOCK(pxLink) == successor) {
                 /* contiguous with successor, so they can be merged */
                 prvRemoveFromFreeList(successor, previous);
@@ -332,7 +335,7 @@ void vPortFree( void *pv )
             }
 
             prvInsertBlockIntoFreeList( ( ( xBlockLink * ) pxLink ) );
-            xFreeBytesRemaining += pxLink->xBlockSize;
+            xFreeBytesRemaining += freeBytes;
         }
         xTaskResumeAll();
     }
