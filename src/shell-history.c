@@ -12,6 +12,7 @@
 #include "shell.h"
 #include "shell-history.h"
 
+#ifdef CONFIG_HISTORY
 #define HISTORY_FILE ".freertos_history"
 
 #define HISTORY_MAX_ENTRY	10
@@ -394,3 +395,4 @@ int history_init(void)
 
 	return history_get_from_file();
 }
+#endif

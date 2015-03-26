@@ -28,6 +28,9 @@ void host_command(int, char **);
 void history_command(int, char **);
 void mmtest_command(int, char **);
 void test_command(int, char **);
+void new_command(int, char **);
+void delete_command(int, char **);
+void mem_command(int, char **);
 void _command(int, char **);
 
 #define MKCL(n, d) {.name=#n, .fptr=n ## _command, .desc=d}
@@ -42,6 +45,9 @@ cmdlist cl[]={
 	MKCL(history, "show command history"),
 	MKCL(help, "help"),
 	MKCL(test, "test new function"),
+	MKCL(new, "Create a task"),
+	MKCL(delete, "Delete a task"),
+	MKCL(mem, "Show memory usage"),
 	MKCL(, ""),
 };
 
@@ -175,10 +181,12 @@ void test_command(int n, char *argv[])
 
 void history_command(int n, char *argv[])
 {
+#ifdef CONFIG_HISTORY
 	struct history_args arg = {.n = n, .argv = argv};
 
 	if(xQueueSendToBack(history_rx_queue, &arg, 0) != pdPASS)
 		fio_printf(2, "\r\nCannot send data to history_rx_queue!\r\n");
+#endif
 }
 
 void _command(int n, char *argv[])

@@ -107,8 +107,10 @@ void command_prompt(void *pvParameters)
                 fio_printf(1, "%s", hint);
 		fio_read(0, buf, sizeof(buf) - 1);
 	
+#ifdef CONFIG_HISTORY
 		/* Add the command to the history list. */
 		SEND_HISTORY_REQ(HISTORY_ADD_CMD, buf, NULL);
+#endif
 
 		int n=parse_command(buf, argv);
 
@@ -183,7 +185,9 @@ int main()
 
 	test_func_init();
 
+#ifdef CONFIG_HISTORY
 	history_init();
+#endif
 
 	/* Create a task to output text read from romfs. */
 	xTaskCreate(command_prompt,

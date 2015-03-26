@@ -23,7 +23,9 @@ static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
     int i=0, endofline=0, last_chr_is_esc;
     char *ptrbuf=buf;
     char ch;
+#ifdef CONFIG_HISTORY
     int ret = -1;
+#endif
 
     while(i < count&&endofline!=1){
 	ptrbuf[i]=recv_byte();
@@ -39,7 +41,7 @@ static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
 
 			last_chr_is_esc=0;
 			ch = recv_byte();
-
+#ifdef CONFIG_HISTORY
 			if (i > 0) {
 				/* It needs to delete '[' character */
 				ptrbuf[i] = '\0';
@@ -63,6 +65,10 @@ static ssize_t stdin_read(void * opaque, void * buf, size_t count) {
 			 */
 			if (!ret)
 				SEND_HISTORY_REQ(HISTORY_COPY_CMD, ptrbuf, &i);
+#else
+			/* Avoid the warning message when compiling. */
+			(void) ch;
+#endif
 			continue;
 		case ESC:
 			last_chr_is_esc=1;
