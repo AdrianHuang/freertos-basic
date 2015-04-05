@@ -236,11 +236,19 @@ void xPortPendSVHandler( void )
 
 	__asm volatile
 	(
+#ifdef GET_CONTEXT_SWITCH_COST
+	"	movw  r0, #0xE018	\n" /* The lower 16-bit address of SysTick Current Value Reg. */
+	"	movt r0, #0xE000	\n" /* The upper 16-bit address of SysTick Current Value Reg. */
+	"	ldr r1, [r0]		\n" /* Load the SysTcik current value to r1. */
+#endif
 	"	mrs r0, psp							\n"
 	"										\n"
 	"	ldr	r3, pxCurrentTCBConst			\n" /* Get the location of the current TCB. */
 	"	ldr	r2, [r3]						\n"
 	"										\n"
+#ifdef GET_CONTEXT_SWITCH_COST
+	"	stmdb sp!, {r1, r2}	\n" /* Push SysTick current value and address of current TCB. */
+#endif
 	"	stmdb r0!, {r4-r11}					\n" /* Save the remaining registers. */
 	"	str r0, [r2]						\n" /* Save the new top of stack into the first member of the TCB. */
 	"										\n"
@@ -256,6 +264,15 @@ void xPortPendSVHandler( void )
 	"	ldr r0, [r1]						\n" /* The first item in pxCurrentTCB is the task top of stack. */
 	"	ldmia r0!, {r4-r11}					\n" /* Pop the registers. */
 	"	msr psp, r0							\n"
+#ifdef GET_CONTEXT_SWITCH_COST
+	"	ldmia sp!, {r0, r2} 	\n" /* r0: prev tick, r1: curr task addr, r2: prev task addr */
+	"	cmp r1, r2		\n"
+	"	it eq			\n"
+	"	bxeq r14		\n"
+	"	stmdb sp!, {r14}	\n"
+	"	bl trace_context_switch \n"
+	"	ldmia sp!, {r14} \n"
+#endif
 	"	bx r14								\n"
 	"										\n"
 	"	.align 2							\n"
